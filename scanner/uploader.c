@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -24,12 +26,18 @@ int do_copy(const char *src, const char *dest)
 	ssize_t rn          = 0;
 	ssize_t wn          = 0;
 	struct stat st      = {0,};
-	char buf[BUFERSIZE] = {0,};
+	unsigned char *buf  = NULL;
 
 	if(!src || !dest)
 		goto out;
 
-	sfd = open(src, O_RDONLY);
+	ret = posix_memalign((void **)&buf, 512, BUFERSIZE);
+	if (ret) {
+        perror("posix_memalign failed");
+        exit(1);
+    }   
+
+	sfd = open(src, O_RDONLY | O_DIRECT | O_SYNC);
 	if(sfd < 0){
 		perror(src);
 		goto out;
@@ -73,6 +81,8 @@ int do_copy(const char *src, const char *dest)
 	}
 
 out:
+	if(buf)
+		free(buf);
 	if(sfd > 0)
 		close(sfd);
 	if(dfd > 0)

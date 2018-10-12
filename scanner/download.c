@@ -1,4 +1,5 @@
 #define  _GNU_SOURCE
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -26,10 +27,16 @@ int do_copy(const char *src, const char *dest)
 	ssize_t rn          = 0;
 	ssize_t wn          = 0;
 	struct stat st      = {0,};
-	char buf[BUFERSIZE] = {0,};
+	unsigned char *buf  = NULL;
 
 	if(!src || !dest)
 		goto out;
+
+    ret = posix_memalign((void **)&buf, 512, BUFERSIZE);
+    if (ret) {
+        perror("posix_memalign failed");
+        exit(1);
+    } 
 
 	sfd = open(src, O_RDONLY);
 	if(sfd < 0){
@@ -41,7 +48,7 @@ int do_copy(const char *src, const char *dest)
 		goto out;
 	}
 
-	dfd = open(dest, O_RDWR|O_SYNC);
+	dfd = open(dest, O_RDWR | O_DIRECT | O_SYNC);
 	if(dfd < 0){
 		perror(dest);
 		goto out;
@@ -76,6 +83,8 @@ int do_copy(const char *src, const char *dest)
 
 	syncfs(dfd);
 out:
+	if(buf)
+		free(buf);
 	if(sfd > 0)
 		close(sfd);
 	if(dfd > 0)
@@ -120,6 +129,23 @@ int do_createhole(const char *path,off_t size,mode_t mode)
 	close(fd);
 
 	return 0;
+}
+
+int do_truncate(const char *path, off_t length)
+{
+	int fd,ret;
+
+	fd = open(path, O_RDWR | O_SYNC | O_DIRECT);
+	if(fd < 0){
+		perror("open error");
+		return -1;
+	}
+
+	syncfs(fd);
+	ret = ftruncate(fd, length);
+	close(fd);
+
+	return ret;
 }
 
 int main(int argc, char **argv)
@@ -208,14 +234,15 @@ int main(int argc, char **argv)
 		}
 		trsize = atol(value);
 	    printf("%ld.  src:%s dest:%s size:%ld trsize:%ld\n",++i,srcfile, destfile, flsize,trsize);
+	
 
-/*
-		if(truncate(destfile, trsize)){
+		//sleep(20);
+		if(do_truncate(destfile, trsize)){
 			perror("truncate error");
 			trsize = 0;
 			continue;
 		}
-*/
+
 		trsize = 0;
 	}
 

@@ -7,9 +7,9 @@
 #include <sys/types.h>
 #include <sys/stat.h> 
 #include <string.h>
-#define BUF_SIZE 1024
+#define BUF_SIZE 512
  
-int main()
+int main(int argc, char *argv[])
 {
     int fd;
     int ret;
@@ -20,17 +20,23 @@ int main()
         exit(1);
     }
  
-    fd = open("./direct_io.data", O_RDONLY | O_DIRECT, 0755);
+    fd = open(argv[1], O_RDONLY | O_DIRECT, 0755);
     if (fd < 0){
-        perror("open ./direct_io.data failed");
+        perror("open failed");
         exit(1);
     }
  
     do {
         ret = read(fd, buf, BUF_SIZE);
         if (ret < 0) {
-            perror("write ./direct_io.data failed");
+            perror("write error");
+			break;
         }
+        if (ret == 0) {
+			break;
+        }
+		printf("read size:%d\n",ret);
+		printf("%s\n",buf);
     } while (ret > 0);
      
     free(buf);
