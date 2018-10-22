@@ -92,6 +92,65 @@ out:
 	return ret;
 }
 
+int do_direct_copy(const char *src, const char *dest)
+{
+
+	int sfd             = -1;
+	int dfd             = -1;
+	ssize_t rn          = 0;
+	ssize_t wn          = 0;
+	int ret             = -1;
+	unsigned char *buf  = NULL;
+
+	if(!src || !dest)
+		goto out;
+
+    ret = posix_memalign((void **)&buf, 512, BUFERSIZE);
+    if (ret) {
+        perror("posix_memalign failed");
+        exit(1);
+    } 
+
+	sfd = open(src, O_RDONLY | O_DIRECT | O_SYNC);
+	if(sfd < 0){
+		perror(src);
+		goto out;
+	}
+
+	syncfs(sfd);
+	dfd = open(dest, O_RDWR | O_CREAT , 0644);
+	if(dfd < 0){
+		perror(dest);
+		goto out;
+	}
+
+	syncfs(dfd);
+    do {
+        rn = read(sfd, buf, BUFERSIZE);
+        if (rn < 0) {
+            perror("read error");
+            break;
+        }   
+        wn = write(dfd, buf, rn);
+		if(wn != rn){
+			perror("write error");
+			break;
+		}
+		printf("wangzhen:%ld\n",rn);
+        memset(buf,0,BUFERSIZE);
+    } while (rn > 0); 
+    
+out:
+    if(buf)
+        free(buf);
+    if(sfd)
+        close(sfd);
+    if(dfd)
+        close(dfd);
+
+    return 0;
+}
+
 int do_getxattr(const char *path, const char *name, void *value)
 {
 	size_t si;
@@ -185,6 +244,7 @@ int main(int argc, char **argv)
 	while((dp=readdir(srcdirp))!=NULL){
 		char srcfile[512]; 
 		char destfile[512]; 
+	    char tmppath[512];
 		char value[512]; 
 		if (dp->d_name[0] == '.' &&
 					((dp->d_name[1] == 0) ||
@@ -201,6 +261,7 @@ int main(int argc, char **argv)
 
 		memset(value,0,sizeof(value));
 		memset(srcfile,0,sizeof(srcfile));
+		memset(tmppath,0,sizeof(tmppath));
 		memset(destfile,0,sizeof(destfile));
 		strcpy(srcfile,srcpath);
 		strcpy(destfile,destpath);
@@ -208,23 +269,25 @@ int main(int argc, char **argv)
 		strcat(destfile,"/");
 		strcat(srcfile,dp->d_name);
 		strcat(destfile,dp->d_name);
+		strcpy(tmppath,destfile);
+		strcat(tmppath,".back");
 		
-	    printf("create hole dest:%s size:%ld\n", destfile, flsize);
+	    printf("create hole dest:%s size:%ld\n", tmppath, flsize);
 
-		if(do_createhole(destfile, flsize, st.st_mode)){
+		if(do_createhole(tmppath, flsize, st.st_mode)){
 			printf("do_createhole error\n");
 		}
 
 	    printf("setxattr\n");
-        if(setxattr(destfile,GF_SSDOP_KEY,"1",1,0)){
+        if(setxattr(tmppath,GF_SSDOP_KEY,"1",1,0)){
             printf("setxattr error!\n");
         }   
 
 	    printf("do_copy\n");
-		if(do_copy(srcfile,destfile) <= 0){
+		if(do_copy(srcfile,tmppath) <= 0){
 			printf("do copy error!\n");
 		}
-        if(removexattr(destfile,GF_SSDOP_KEY)){
+        if(removexattr(tmppath,GF_SSDOP_KEY)){
             printf("removexattr error!\n");
         }   
 	    printf("do_getxattr\n");
@@ -233,10 +296,19 @@ int main(int argc, char **argv)
 			printf("do_getxattr error!\n");
 		}
 		trsize = atol(value);
-	    printf("%ld.  src:%s dest:%s size:%ld trsize:%ld\n",++i,srcfile, destfile, flsize,trsize);
+	    printf("%ld.  src:%s dest:%s size:%ld trsize:%ld\n",++i,srcfile, tmppath, flsize,trsize);
 	
-/*
-		usleep(100000);
+		//if(do_createhole(destfile, flsize, st.st_mode)){
+		//	printf("do_createhole error\n");
+		//}
+		if(do_direct_copy(tmppath,destfile) <= 0){
+			printf("do direct_copy error!\n");
+		}
+/*  
+		strcat(destfile,".sleep1");
+		if(do_direct_copy(tmppath,destfile) <= 0){
+			printf("do direct_copy error!\n");
+		}
 		if(do_truncate(destfile, trsize)){
 			perror("truncate error");
 			trsize = 0;

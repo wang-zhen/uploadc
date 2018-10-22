@@ -50,7 +50,7 @@ ssize_t ssdpwrite(int fd, int sfd, const void *buf, size_t count, off_t offset)
             writesize = count;
 
 		printf("writesize:%d block:%ld\n", writesize, block);
-        n = pwrite(sfd,buf,writesize,(off_t)(block*blocksize + offset));
+        n = pwrite(sfd,buf,writesize,(off_t)(block*blocksize + boffset));
         if(n < 0){
             perror("pread err");
             goto error;

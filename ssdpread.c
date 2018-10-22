@@ -37,7 +37,8 @@ ssize_t ssdpread(int fd, int bfd, void *buf, size_t count, off_t offset)
 
 
     index = offset/blocksize;
-	boffset = offset & ~(blocksize-1);
+	//boffset = offset & ~(blocksize-1);
+	boffset = offset % blocksize;
 	readsize = blocksize - boffset;
 
     if((offset + count) > flsize)
@@ -55,7 +56,7 @@ ssize_t ssdpread(int fd, int bfd, void *buf, size_t count, off_t offset)
             readsize = count;
 
         printf("wangzhe index:%d  block:%ld\n",index,block);
-        n = pread(bfd,buf,readsize,(off_t)(block*blocksize + offset));
+        n = pread(bfd,buf,readsize,(off_t)(block*blocksize + boffset));
         if(n < 0){
             perror("pread err");
             goto error;

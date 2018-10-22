@@ -11,8 +11,8 @@
  
 int main(int argc, char *argv[])
 {
-    int fd;
-    int ret;
+    int fd,fd1;
+    int ret,rn,wn;
     unsigned char *buf;
     ret = posix_memalign((void **)&buf, 512, BUF_SIZE);
     if (ret) {
@@ -25,16 +25,24 @@ int main(int argc, char *argv[])
         perror("open failed");
         exit(1);
     }
+    fd1 = open(argv[2], O_RDWR | O_CREAT, 0755);
+    if (fd1 < 0){
+        perror(argv[2]);
+        exit(1);
+    }
  
     do {
-        ret = read(fd, buf, BUF_SIZE);
+        rn = read(fd, buf, BUF_SIZE);
         if (ret < 0) {
             perror("read error");
 			break;
         }
-		printf("%s",buf);
+        wn = write(fd1, buf, rn);
+		if(wn != rn)
+			printf("read error!\n");
+		printf("wangzhen:%d\n",rn);
         memset(buf,0,BUF_SIZE);
-    } while (ret > 0);
+    } while (rn > 0);
      
     free(buf);
     close(fd);

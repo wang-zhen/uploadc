@@ -14,6 +14,7 @@
 #include <attr/xattr.h>
 
 #define BUFERSIZE 4096
+#define MEMALIGN 16
 #define GF_TRUESIZE_KEY  "trusted.glusterfs.truesize"
 #define GF_SSDOP_KEY  "trusted.glusterfs.ssd.security"
 
@@ -147,8 +148,8 @@ int main(int argc, char **argv)
 			continue;
 	
 		flsize = st.st_size;
-		if((flsize & 15))
-			trsize = (flsize & ~15) + 16;
+		if(flsize & (MEMALIGN-1))
+			trsize = (flsize & ~(MEMALIGN-1)) + MEMALIGN;
 
 		memset(value,0,sizeof(value));
 		memset(srcfile,0,sizeof(srcfile));
