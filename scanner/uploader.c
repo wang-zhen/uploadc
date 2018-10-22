@@ -167,6 +167,7 @@ int main(int argc, char **argv)
 				continue;
 			}
 		}
+
 	    printf("%ld.  src:%s dest:%s size:%ld trsize:%ld\n",++i,srcfile, destfile, flsize,trsize);
 
 		if(setxattr(srcfile,GF_SSDOP_KEY,"1",1,0)){
@@ -191,6 +192,7 @@ int main(int argc, char **argv)
 			trsize = 0;
 			continue;
 		}
+
 		trsize = 0;
 	}
 

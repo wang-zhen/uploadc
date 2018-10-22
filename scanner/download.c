@@ -235,14 +235,14 @@ int main(int argc, char **argv)
 		trsize = atol(value);
 	    printf("%ld.  src:%s dest:%s size:%ld trsize:%ld\n",++i,srcfile, destfile, flsize,trsize);
 	
-
-		//sleep(20);
+/*
+		usleep(100000);
 		if(do_truncate(destfile, trsize)){
 			perror("truncate error");
 			trsize = 0;
 			continue;
 		}
-
+*/
 		trsize = 0;
 	}
 

@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h> 
 #include <string.h>
-#define BUF_SIZE 512
+#define BUF_SIZE 4096
  
 int main(int argc, char *argv[])
 {
@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
  
-    fd = open(argv[1], O_RDONLY | O_DIRECT, 0755);
+    fd = open(argv[1], O_RDONLY | O_DIRECT | O_SYNC, 0755);
     if (fd < 0){
         perror("open failed");
         exit(1);
@@ -29,14 +29,11 @@ int main(int argc, char *argv[])
     do {
         ret = read(fd, buf, BUF_SIZE);
         if (ret < 0) {
-            perror("write error");
+            perror("read error");
 			break;
         }
-        if (ret == 0) {
-			break;
-        }
-		printf("read size:%d\n",ret);
-		printf("%s\n",buf);
+		printf("%s",buf);
+        memset(buf,0,BUF_SIZE);
     } while (ret > 0);
      
     free(buf);
