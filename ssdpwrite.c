@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -11,6 +13,7 @@
 #include <sys/ioctl.h>
 
 #define BUFERSIZE 4096
+#define MEMALIGN 4096
 
 ssize_t ssdpwrite(int fd, int sfd, const void *buf, size_t count, off_t offset)
 {
@@ -33,12 +36,13 @@ ssize_t ssdpwrite(int fd, int sfd, const void *buf, size_t count, off_t offset)
     flsize = st.st_size;
 
     index = offset/blocksize;
-	boffset = offset % blocksize;
-    writesize = blocksize; 
+    boffset = offset % blocksize;
+    writesize = blocksize - boffset; 
 
     if((offset + count) > flsize)
         count = flsize - offset;
 
+    printf("blocksize:%d flsize: %ld count%ld,offset:%ld\n",blocksize, flsize, count, offset);
     while(count > 0){
         block = index;
         if (ioctl(fd, FIBMAP, &block)) {
@@ -49,16 +53,16 @@ ssize_t ssdpwrite(int fd, int sfd, const void *buf, size_t count, off_t offset)
         if(count < writesize)
             writesize = count;
 
-		printf("writesize:%d block:%ld\n", writesize, block);
+        printf("wangzhe index:%d  block:%ld\n",index,block);
         n = pwrite(sfd,buf,writesize,(off_t)(block*blocksize + boffset));
         if(n < 0){
-            perror("pread err");
+            perror("pwrite err");
             goto error;
         }
-		if(boffset){
-			boffset = 0;
-			writesize = blocksize;
-		}
+        if(boffset){
+	        boffset = 0;
+	        writesize = blocksize;
+        }
         count -= n;
         ret += n;
         index++;
@@ -73,45 +77,63 @@ error:
 
 int main(int argc, char **argv)
 {
-    int sfd, dfd, bfd, n, offset = 0;
-    char buf[BUFERSIZE] = {0,};
+    int sfd, dfd, bfd, ret, rn, wn, offset = 0;
+    unsigned char *buf = NULL;
 
     assert(argv[1] != NULL);
     assert(argv[2] != NULL);
     assert(argv[3] != NULL);
 
-    sfd = open(argv[1], O_RDONLY);
+    ret = posix_memalign((void **)&buf, MEMALIGN, BUFERSIZE);
+    if (ret) {
+        perror("posix_memalign failed");
+        exit(1);
+    }
+
+    sfd = open(argv[1], O_RDWR);
     if (sfd <= 0) {
         perror("error opening file");
         goto end;
     }
 
-    dfd = open(argv[2], O_RDWR);
+    dfd = open(argv[2], O_RDWR | O_DIRECT | O_SYNC);
     if (dfd <= 0) {
         perror("error opening file");
         goto end;
     }
-    bfd = open(argv[3], O_RDWR);
+    syncfs(dfd);
+
+    bfd = open(argv[3], O_RDWR | O_DIRECT | O_SYNC);
     if (bfd <= 0) {
         perror("error opening file");
         goto end;
     }
+    syncfs(bfd);
 
-	while(1){
-    	n=pread(sfd, buf, BUFERSIZE, offset);
-		if(n <= 0){
-			printf("n=%d\n",n);
-        	perror("END");
-			break;
-		}
+    while(1){
+        rn=pread(sfd, buf, BUFERSIZE, offset);
+        if(rn < 0){
+            perror("read error");
+            break;
+        }
+        if(rn == 0){
+            perror("read end");
+            break;
+        }
 
-    	n=ssdpwrite(dfd, bfd, buf, n, offset);
+        wn=ssdpwrite(dfd, bfd, buf, rn, offset);
+        if(wn != rn){
+             perror("END");
+             break;
+        }
 
-		offset += n;
-		memset(buf, '\0', BUFERSIZE);
-	}
+        offset += rn;
+        memset(buf, '\0', BUFERSIZE);
+    }
 
 end:
+	if(buf)
+    	free(buf);
 	if(sfd)
     	close(sfd);
 	if(dfd)

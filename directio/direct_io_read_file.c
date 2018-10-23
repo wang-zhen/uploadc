@@ -14,13 +14,14 @@ int main(int argc, char *argv[])
     int fd,fd1;
     int ret,rn,wn;
     unsigned char *buf;
-    ret = posix_memalign((void **)&buf, 512, BUF_SIZE);
+    ret = posix_memalign((void **)&buf, 4096, BUF_SIZE);
     if (ret) {
         perror("posix_memalign failed");
         exit(1);
     }
  
     fd = open(argv[1], O_RDONLY | O_DIRECT | O_SYNC, 0755);
+    //fd = open(argv[1], O_RDONLY );
     if (fd < 0){
         perror("open failed");
         exit(1);
@@ -33,14 +34,15 @@ int main(int argc, char *argv[])
  
     do {
         rn = read(fd, buf, BUF_SIZE);
-        if (ret < 0) {
+        if (rn < 0) {
             perror("read error");
-			break;
+            break;
         }
         wn = write(fd1, buf, rn);
-		if(wn != rn)
-			printf("read error!\n");
-		printf("wangzhen:%d\n",rn);
+	if(wn != rn)
+		perror("write error!\n");
+
+	printf("wangzhen:%d\n",rn);
         memset(buf,0,BUF_SIZE);
     } while (rn > 0);
      
